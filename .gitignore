@@ -1,1 +1,6 @@
 *.swp
+server/data/docx/*
+server/data/mailboxes/*
+server/data/users/*
+server/target/*
+gdocs/target/*
