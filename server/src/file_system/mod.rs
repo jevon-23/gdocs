@@ -121,6 +121,7 @@ pub fn save_mailbox(mb : &docx::Mailbox) {
 
 /* Generate a new docx file */
 pub fn new_file(inp :Input) {
+    /* TODO: First, we need to check to see if the file exists already */
     /* Save the mailbox to the database */
     let mb : docx::Mailbox = docx::Mailbox::new(&inp.user, &inp.params[0]);
     save_mailbox(&mb);
