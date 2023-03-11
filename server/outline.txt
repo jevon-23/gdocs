@@ -1,0 +1,7 @@
+Want a server that can do a few different things
+  1. Create a new file that is accessible to users of the server
+  2. Allow users to write to a file
+  3. Allow users to read from a file
+  4. Allow for r/w to happen concurrently
+  5. Allow for a file to be deleted
+
