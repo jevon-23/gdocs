@@ -5,6 +5,7 @@ use std::process::Command;
 static LOGIN: &str = "http://localhost:8477/login/user";
 static LOGOUT: &str = "http://localhost:8477/logout/user";
 static NEW_FILE: &str = "http://localhost:8477/new/user/test";
+static UPDATE_FILE: &str = "http://localhost:8477/update/user/user/test/hello world";
 // static BROKE: &str = "http://localhost:8477/login";
 fn make_request_raw(req : &str) -> String {
     let mut res = reqwest::get(req).unwrap();
@@ -31,6 +32,10 @@ fn main()  {
     println!("Make a request to the server");
 }
 
+/**********************************************************/
+/* Testing Below                                          */
+/* NOTE: Tests work individually as of rn, need to update */
+/**********************************************************/
 #[test]
 fn test_login_logout() {
     /* Login */
@@ -50,14 +55,35 @@ fn test_new_file() {
     let mut body : String = make_request_raw(LOGIN);
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"user: user logged in");
-
+    /* Create new file */
     body = make_request_raw(NEW_FILE);
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"created a new file for user named test");
-
+    /* Logout */
     body = make_request_raw(LOGOUT);
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"user: user logged out");
+}
+
+#[test]
+fn test_update_file() {
+    /* Login */
+    let mut body : String = make_request_raw(LOGIN);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged in");
+    /* Create new empty file */
+    body = make_request_raw(NEW_FILE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"created a new file for user named test");
+    /* Update file */
+    body = make_request_raw(UPDATE_FILE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user updated test owned by user");
+    /* Logout */
+    body = make_request_raw(LOGOUT);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged out");
+
 }
 
 

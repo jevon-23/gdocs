@@ -5,13 +5,6 @@ use std::fs;
 
 static DOCX_DIR : &str = "/data/docx/"; 
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Mailbox {
-    pub owner : String,
-    pub access : Vec<users::User>,
-    pub file_name : String,
-}
-
 /* Generate path to the directory of all OWNERS' docx */
 pub fn generate_all_docx_path(owner : &String) -> String {
     let cwd = env::current_dir().unwrap();
@@ -22,13 +15,30 @@ pub fn generate_all_docx_path(owner : &String) -> String {
 }
 
 /* Generate the path to a document owned by OWNER */
-fn generate_docx_path(owner : &String, file_name : &String) -> String {
+pub fn generate_docx_path(owner : &String, file_name : &String) -> String {
     let mut docx_path = generate_all_docx_path(owner);
     docx_path += "/";
     docx_path.push_str(file_name);
     println!("docx path: {}", docx_path);
     return docx_path;
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Mailbox {
+    pub owner : String,
+    pub access : Vec<users::User>,
+    pub file_name : String,
+    /* This is where we would handle security for the file names
+     * Should be a layer of abstraction so that the user does not
+     * ever know about the actual path to the file, but everyone
+     * hass knowledge of the mailbox. Usually security would come 
+     * in here, and if you have a key that can be used to open this
+     * mailbox, then access of the file would be granted, otherwise not.
+     * Instead for the sake of not wanting to implement an entire hashing scheme
+     * w/ my bootleg database, we will make the request take in more information
+     */
+}
+
 
 impl Mailbox {
     pub fn new(owner : &String, file_name : &String) -> Self {

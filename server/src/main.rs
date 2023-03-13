@@ -42,7 +42,7 @@ impl<'inp> Input<'inp> {
 }
 
 // static LOGIN: &str = "http://localhost:8477/login/user";
-fn process_input(input_strings : Vec<&str>, mut stream : &TcpStream) {
+fn process_input(input_strings : Vec<&str>, stream : &TcpStream) {
     let req : &str = input_strings[0];
     let req_split : Vec<&str> = req.split(" ").collect();
 
@@ -53,7 +53,7 @@ fn process_input(input_strings : Vec<&str>, mut stream : &TcpStream) {
     let path_list : Vec<String> = path.into_iter().map(String::from).collect();
 
     // let inp : Input = Input::new(&path_list);
-    let mut inp : Input = match Input::new(&path_list, stream) {
+    let inp : Input = match Input::new(&path_list, stream) {
         Some(inp) => inp,
         None => return,
     };
@@ -63,6 +63,7 @@ fn process_input(input_strings : Vec<&str>, mut stream : &TcpStream) {
         "login" => login::handle_login(inp),
         "logout" => login::handle_logout(inp),
         "new" => file_system::new_file(inp),
+        "update" => file_system::update_file(inp),
         _ => println!("Invalid input was passed into program"),
     };
 }
