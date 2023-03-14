@@ -5,8 +5,25 @@ use std::process::Command;
 static LOGIN: &str = "http://localhost:8477/login/user";
 static LOGOUT: &str = "http://localhost:8477/logout/user";
 static NEW_FILE: &str = "http://localhost:8477/new/user/test";
-static UPDATE_FILE: &str = "http://localhost:8477/update/user/user/test/hello world";
-// static BROKE: &str = "http://localhost:8477/login";
+static UPDATE_FILE: &str = "http://localhost:8477/update/user/user/test";
+static READ_FILE: &str = "http://localhost:8477/read/user/user/test";
+
+/* Send a post request with a body */
+fn make_post_raw(req : &str, contents : &str) -> String {
+    let client = reqwest::Client::new();
+    let mut res = client.post(req)
+        .body(contents.to_string())
+        .send()
+        .unwrap() ;
+    let mut body = String::new();
+    res.read_to_string(&mut body).unwrap();
+
+    println!("Status: {}", res.status());
+    println!("Headers:\n{:#?}", res.headers());
+    println!("Body:\n{}", body);
+    return body;
+}
+
 fn make_request_raw(req : &str) -> String {
     let mut res = reqwest::get(req).unwrap();
     let mut body = String::new();
@@ -42,7 +59,6 @@ fn test_login_logout() {
     let mut body : String = make_request_raw(LOGIN);
     assert_eq!(body,"user: user logged in");
     Command::new("sleep").arg("2").spawn().unwrap();
-
     /* Logout */
     body = make_request_raw(LOGOUT);
     Command::new("sleep").arg("2").spawn().unwrap();
@@ -76,7 +92,7 @@ fn test_update_file() {
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"created a new file for user named test");
     /* Update file */
-    body = make_request_raw(UPDATE_FILE);
+    body = make_post_raw(UPDATE_FILE, "hello world");
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"user updated test owned by user");
     /* Logout */
@@ -86,5 +102,27 @@ fn test_update_file() {
 
 }
 
-
+#[test]
+fn test_read_file() {
+    /* Login */
+    let mut body : String = make_request_raw(LOGIN);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged in");
+    /* Create new empty file */
+    body = make_request_raw(NEW_FILE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"created a new file for user named test");
+    /* Update file */
+    body = make_post_raw(UPDATE_FILE, "hello world");
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user updated test owned by user");
+    /* Read file */
+    body = make_request_raw(READ_FILE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user read test owned by user\nhello world");
+    /* Logout */
+    body = make_request_raw(LOGOUT);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged out");
+}
 

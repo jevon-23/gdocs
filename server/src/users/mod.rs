@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -5,7 +6,7 @@ pub struct User {
     pub username : String,
     pub id : u8,
     pub logged_in : bool,
-    pub files : Vec<String>,
+    pub files : HashSet<String>,
     // Cookie? 
 }
 
@@ -15,7 +16,7 @@ impl User  {
             username : username,
             id : id,
             logged_in : false,
-            files : Vec::new(),
+            files : HashSet::new(),
         };
     }
 

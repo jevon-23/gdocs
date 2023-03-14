@@ -12,6 +12,7 @@ static MAILBOX_PATH : &str = "/data/mailboxes/";
 /* Path generators for queries */
 /*******************************/
 
+
 /* Generate the path to all the users */
 fn generate_user_path() -> String {
     let check_path = env::current_dir();
@@ -27,6 +28,7 @@ fn generate_user_path() -> String {
     return users_path;
 }
 
+/* Generate the path for all of this users' mailboxes */
 pub fn generate_all_mailboxes_path(owner : &String) -> String {
     let cwd = env::current_dir().unwrap();
     let mut mb_path : String =
@@ -38,15 +40,13 @@ pub fn generate_all_mailboxes_path(owner : &String) -> String {
 /* Generate the path to a mailbox */
 pub fn generate_mailbox_path(owner : &String,
                              file_name : &String) -> String {
-        // cwd/data/mailboxes/user/file_name
-        let mut mb_path : String =
-            generate_all_mailboxes_path(owner);
-        mb_path.push_str("/");
-        mb_path.push_str(file_name);
-        return mb_path;
-    }
-
-
+    // cwd/data/mailboxes/user/file_name
+    let mut mb_path : String =
+        generate_all_mailboxes_path(owner);
+    mb_path.push_str("/");
+    mb_path.push_str(file_name);
+    return mb_path;
+}
 /*****************/
 /* User data i/o */
 /*****************/
@@ -68,7 +68,6 @@ pub fn get_users() -> Vec<users::User> {
 
     return users;
 }
-
 
 /* Get a specific user */
 pub fn get_user(users : &Vec<users::User>, username : &String) 
@@ -121,12 +120,13 @@ pub fn save_users(users: &Vec<users::User>) {
 pub fn save_mailbox(mb : &docx::Mailbox) {
     /* Save the mailbox */
     let serialized_mb = serde_json::to_string(&mb).unwrap();
-    fs::write(
-        generate_mailbox_path(&mb.owner, &mb.file_name),
-        serialized_mb
-        ).unwrap();
+        fs::write(
+            generate_mailbox_path(&mb.owner, &mb.file_name),
+            serialized_mb)
+        .unwrap();
 }
 
+/* Get the mailbox for FILENAME owned by OWNER, on behalf of USER */
 fn get_mailbox(user : &users::User, owner : &str, file_name : &str) 
     -> Option<docx::Mailbox> {
         println!("user {} trying to access {}/{}",
@@ -142,7 +142,7 @@ fn get_mailbox(user : &users::User, owner : &str, file_name : &str)
         let mb : docx::Mailbox =
             serde_json::from_str(&serialized_mb).unwrap();
 
-        /* Check to see if we have access to the file, return mb if so, None otherwise */
+        /* Return mb if we have access to file, otherwise None */
         if mb.owner == user.username {
             return Some(mb);
         }
@@ -157,31 +157,35 @@ fn get_mailbox(user : &users::User, owner : &str, file_name : &str)
         };
     }
 
+
+/* Get the file FILENAME owned by OWNER, on behalf of USER */
 fn get_file(user : &users::User, owner : &str, file_name : &str)
     -> Option<docx::Doc> {
 
-    /* Get the mailbox for this file */
-    let mb : docx::Mailbox =
-        match get_mailbox(user, owner, file_name) {
-            Some(mb) => mb,
-            None => {
-                println!(
-                    "Could not access mailbox: {}/{}",
-                    owner, file_name);
-                return None;
-            }
+        /* Get the mailbox for this file */
+        let mb : docx::Mailbox =
+            match get_mailbox(user, owner, file_name) {
+                Some(mb) => mb,
+                None => {
+                    println!(
+                        "Could not access mailbox: {}/{}",
+                        owner, file_name);
+                    return None;
+                }
+            };
 
-    };
-    let doc_path : String = docx::generate_docx_path(
-        &mb.owner.to_string(),
-        &mb.file_name.to_string());
+        /* Generate the path to the document */
+        let doc_path : String = docx::generate_docx_path(
+            &mb.owner.to_string(),
+            &mb.file_name.to_string());
 
-    /* Read in the file mbpath  & deserialize */
-    let serialized_doc = fs::read_to_string(doc_path).unwrap();
-    let doc : docx::Doc= serde_json::from_str(
-        &serialized_doc).unwrap();
-    return Some(doc);
-}
+        /* Read in the file mbpath  & deserialize */
+        let serialized_doc = fs::read_to_string(doc_path).unwrap();
+        let doc : docx::Doc= serde_json::from_str(
+            &serialized_doc).unwrap();
+        return Some(doc);
+    }
+
 /*********************/
 /* File Manipulation */
 /*********************/
@@ -194,6 +198,7 @@ pub fn save_docx(docx_path : String, docx : &docx::Doc) {
     let serialized_docx = serde_json::to_string(&docx).unwrap();
     fs::write(docx_path, serialized_docx).unwrap();
 }
+
 /* Generate a new docx file */
 pub fn new_file(inp :Input) {
     /* TODO: First, we need to check to see if the file 
@@ -208,13 +213,15 @@ pub fn new_file(inp :Input) {
             None => panic!(
                 "{}",
                 format!("Could not find user: {}", inp.user)),
-    };
+        };
+
     /* Save the mailbox to the database */
     let mb : docx::Mailbox =
         docx::Mailbox::new(&inp.user, &inp.params[0]);
     save_mailbox(&mb);
 
-    user.files.push(mb.file_name);
+    /* Update the user to have the new file in their access list */
+    user.files.insert(mb.file_name);
     update_user(&mut all_users, &user);
 
     /* Send the response back to client */
@@ -226,6 +233,63 @@ pub fn new_file(inp :Input) {
     utils::send_response(inp.output_stream, response);
 }
 
+/* Return the document that is trying to be accessed */
+pub fn read_db_file(usr : &str, own : &str, file : &str)
+    -> Option<docx::Doc> {
+    let username : String = usr.to_string();
+    let owner : String = own.to_string();
+    let file_name : String = file.to_string();
+
+    /* Get the mailbox for this file */
+    let all_users : Vec<users::User> = get_users();
+    let user : users::User =
+        match get_user(&all_users, &username) {
+            Some(u) => u,
+            None => panic!("{}", 
+                           format!("Could not find user: {}", 
+                                   username)),
+        };
+
+    /* Check to see if the file is in users files || 
+     * the files that we have access to */
+    let has_access : Vec<String>= user.clone().files.into_iter()
+        .filter(|f| *f == file_name)
+        .collect();
+    if has_access.len() != 1 {
+        return None;
+    }
+
+    return get_file(&user, &owner, &file_name);
+}
+
+/* Read route; read the file and return the contents back to the 
+ * user */
+pub fn read_file(inp : Input) {
+    let owner : String = inp.params[0].clone();
+    let file_name : String = inp.params[1].clone();
+    let docx : docx::Doc = match read_db_file(
+        &inp.user, &owner, &file_name) {
+            Some(doc) => doc,
+            None => {
+                let mut response =
+                    "HTTP/1.1 400 OK\r\n\r\n".to_string();
+                let user_login : String =
+                    format!("Could not access: {}",file_name);
+                response.push_str(&user_login);
+                utils::send_response(inp.output_stream, response);
+                return;
+        }
+    };
+    
+    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
+    let reader : String = format!("{} read {} owned by {}",inp.user, file_name, owner);
+    response.push_str(&reader);
+    response.push_str("\n");
+    response.push_str(&docx.contents);
+    utils::send_response(inp.output_stream, response);
+}
+
+/* Update route => update the contents of the file */
 pub fn update_file(inp : Input) {
     /* Get the mailbox for this file */
     let all_users : Vec<users::User> = get_users();
@@ -235,39 +299,27 @@ pub fn update_file(inp : Input) {
             None => panic!("{}", 
                            format!("Could not find user: {}", 
                                    inp.user)),
-    };
+        };
 
     let owner : String = inp.params[0].clone();
     let file_name : String = inp.params[1].clone();
 
-    /* Check to see if the file is in users files || 
-     * the files that we have access to */
-    let has_access : Vec<String>= user.clone().files.into_iter()
-        .filter(|f| *f == file_name)
-        .collect();
-    if has_access.len() != 1 {
-        // Send error response back
-        panic!("Could not access the file: {}", file_name);
-    }
-
-    let mut docx : docx::Doc =
-        match get_file(&user, &owner, &file_name) {
+    let mut docx : docx::Doc = match read_db_file(
+        &inp.user,
+        &owner, &file_name) {
             Some(doc) => doc,
             None => panic!("Could nto get documetnt "),
-    };
-
-    println!("docs contents rn: {}", docx.contents);
+        };
 
     /* Update the contents of the file =>
      * For now, simply append on to the end of the file
      */
-    docx.contents += &inp.params[2];
+    docx.contents += inp.body.as_str();
     save_docx(
         docx::generate_docx_path(
             &owner,
             &file_name),
             &docx);
-
     /* Send the response back to client */
     let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
     let user_login : String = format!("{} updated {} owned by {}",user.username, file_name, owner);
