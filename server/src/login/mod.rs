@@ -50,9 +50,7 @@ pub fn handle_login(inp : Input) {
     user.logged_in = true;
 
     /* Write response back to the user */
-    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let user_login : String = format!("user: {} logged in", user.username);
-    response.push_str(&user_login);
+    let response  : String = format!("user: {} logged in", user.username);
 
     /* Upadate database */
     all_users.insert(user.id as usize, user);
@@ -87,9 +85,7 @@ pub fn handle_logout(inp : Input) {
     user.logged_in = false;
 
     /* Create response */
-    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let user_logout : String = format!("user: {} logged out", user.username);
-    response.push_str(&user_logout);
+    let response : String = format!("user: {} logged out", user.username);
 
     /* Save the users */
     all_users.insert(user.id as usize, user);

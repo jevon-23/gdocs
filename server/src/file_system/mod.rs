@@ -146,15 +146,14 @@ fn get_mailbox(user : &users::User, owner : &str, file_name : &str)
         if mb.owner == user.username {
             return Some(mb);
         }
-        match get_user(&mb.access, &user.username) {
-            Some(_) => return Some(mb),
-            None => {
-                println!(
-                    "User: {} does not have access 2 file: {}",
-                    user.username, file_name);
-                return None;
-            },
-        };
+
+        if !docx::Mailbox::has_access(&mb, &user.username) {
+            println!("User: {} does not have access 2 file: {}",
+                     user.username, file_name);
+            return None;
+        }
+
+        return Some(mb);
     }
 
 
@@ -167,8 +166,7 @@ fn get_file(user : &users::User, owner : &str, file_name : &str)
             match get_mailbox(user, owner, file_name) {
                 Some(mb) => mb,
                 None => {
-                    println!(
-                        "Could not access mailbox: {}/{}",
+                    println!("Could not access mailbox: {}/{}",
                         owner, file_name);
                     return None;
                 }
@@ -210,26 +208,30 @@ pub fn new_file(inp :Input) {
     let mut user : users::User =
         match get_user(&all_users, &inp.user) {
             Some(u) => u,
-            None => panic!(
-                "{}",
-                format!("Could not find user: {}", inp.user)),
+            None => { 
+                let response : String =
+                    format!("Could not find user: {}", inp.user);
+                utils::send_error_response(inp.output_stream,
+                                           response);
+                return;
+            }
         };
 
     /* Save the mailbox to the database */
-    let mb : docx::Mailbox =
+    let mut mb : docx::Mailbox =
         docx::Mailbox::new(&inp.user, &inp.params[0]);
+    mb.access.insert((user.username).clone());
     save_mailbox(&mb);
 
     /* Update the user to have the new file in their access list */
-    user.files.insert(mb.file_name);
+    user.files.insert(format!("{}/{}",
+                      &user.username, mb.file_name));
     update_user(&mut all_users, &user);
 
     /* Send the response back to client */
-    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let user_login : String =
+    let response : String =
         format!("created a new file for {} named {}",
                 inp.user, inp.params[0]);
-    response.push_str(&user_login);
     utils::send_response(inp.output_stream, response);
 }
 
@@ -245,17 +247,19 @@ pub fn read_db_file(usr : &str, own : &str, file : &str)
     let user : users::User =
         match get_user(&all_users, &username) {
             Some(u) => u,
-            None => panic!("{}", 
-                           format!("Could not find user: {}", 
-                                   username)),
+            None => {
+                println!("Could not find user: {}", username);
+                return None;
+            }
         };
 
     /* Check to see if the file is in users files || 
      * the files that we have access to */
     let has_access : Vec<String>= user.clone().files.into_iter()
-        .filter(|f| *f == file_name)
+        .filter(|f| *f == format!("{}/{}", &owner, &file_name))
         .collect();
     if has_access.len() != 1 {
+        println!("User does not have access to file");
         return None;
     }
 
@@ -271,19 +275,17 @@ pub fn read_file(inp : Input) {
         &inp.user, &owner, &file_name) {
             Some(doc) => doc,
             None => {
-                let mut response =
-                    "HTTP/1.1 400 OK\r\n\r\n".to_string();
-                let user_login : String =
+                let response : String =
                     format!("Could not access: {}",file_name);
-                response.push_str(&user_login);
-                utils::send_response(inp.output_stream, response);
+                utils::send_error_response(
+                    inp.output_stream, response);
                 return;
         }
     };
     
-    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let reader : String = format!("{} read {} owned by {}",inp.user, file_name, owner);
-    response.push_str(&reader);
+    let mut response : String =
+        format!("{} read {} owned by {}",
+                inp.user, file_name, owner);
     response.push_str("\n");
     response.push_str(&docx.contents);
     utils::send_response(inp.output_stream, response);
@@ -296,9 +298,13 @@ pub fn update_file(inp : Input) {
     let user : users::User =
         match get_user(&all_users, &inp.user) {
             Some(u) => u,
-            None => panic!("{}", 
-                           format!("Could not find user: {}", 
-                                   inp.user)),
+            None => {
+                let response : String =
+                    format!("Could not find user: {}", inp.user);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            },
         };
 
     let owner : String = inp.params[0].clone();
@@ -308,7 +314,13 @@ pub fn update_file(inp : Input) {
         &inp.user,
         &owner, &file_name) {
             Some(doc) => doc,
-            None => panic!("Could nto get documetnt "),
+            None => {
+                let response : String = 
+                    format!("Could nto get documetnt ");
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            }
         };
 
     /* Update the contents of the file =>
@@ -321,9 +333,80 @@ pub fn update_file(inp : Input) {
             &file_name),
             &docx);
     /* Send the response back to client */
-    let mut response = "HTTP/1.1 200 OK\r\n\r\n".to_string();
-    let user_login : String = format!("{} updated {} owned by {}",user.username, file_name, owner);
-    response.push_str(&user_login);
+    let response : String =
+        format!("{} updated {} owned by {}",
+                user.username, file_name, owner);
     utils::send_response(inp.output_stream, response);
+}
+
+/* Invite desired user to manipulate file */
+pub fn invite(inp : Input) {
+    /* Get the mailbox for this file */
+    let mut all_users : Vec<users::User> = get_users();
+    let owner : users::User =
+        match get_user(&all_users, &inp.user) {
+            Some(u) => u,
+            None => {
+                let response =
+                    format!("Could not find user: {}", inp.user);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            }
+        };
+
+    let invitee : String = inp.params[0].clone(); // user being inv
+    let file_name : String = inp.params[1].clone();
+
+    /* Get the mailbox for this file, and append new user to 
+     * list of people with access */
+    let mut mb : docx::Mailbox =  match 
+        get_mailbox(&owner, &owner.username, &file_name) {
+            Some(mb) => mb,
+            None => {
+                let response : String =
+                    format!("Could not access mailbox: {}/{}",
+                            owner.username, file_name);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            }
+        };
+
+    if owner.username != mb.owner {
+        let response : String =
+            format!("{} does not own the file: {}",
+                    owner.username, file_name);
+        utils::send_error_response(inp.output_stream, response);
+        return;
+    }
+
+    mb.access.insert(invitee.clone());
+
+    /* Save the mailbox to db */
+    save_mailbox(&mb);
+
+    /* Update the new users' access to contain this file */
+    let mut user2 : users::User =
+        match get_user(&all_users, &invitee) {
+            Some(u) => u,
+            None => {
+                let response : String =
+                    format!("Could not find user: {}", invitee);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            },
+        };
+    user2.files.insert(format!("{}/{}", &owner.username, file_name));
+
+    /* Save new user back to db */
+    update_user(&mut all_users, &user2);
+
+    /* Send response back */
+    let body : String = format!("{} invited {} to edit {}", 
+                                owner.username, user2.username,
+                                file_name);
+    utils::send_response(inp.output_stream, body);
 }
 

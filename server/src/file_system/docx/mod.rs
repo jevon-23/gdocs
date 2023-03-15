@@ -1,7 +1,7 @@
 use serde::{Serialize, Deserialize};
-use crate::users;
 use std::env;
 use std::fs;
+use std::collections::HashSet;
 
 static DOCX_DIR : &str = "/data/docx/"; 
 
@@ -26,7 +26,7 @@ pub fn generate_docx_path(owner : &String, file_name : &String) -> String {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Mailbox {
     pub owner : String,
-    pub access : Vec<users::User>,
+    pub access : HashSet<String>,
     pub file_name : String,
     /* This is where we would handle security for the file names
      * Should be a layer of abstraction so that the user does not
@@ -45,12 +45,20 @@ impl Mailbox {
         let docx : Doc = Doc::new();
         let mb : Self = Self {
             owner : owner.to_owned(),
-            access : Vec::new(),
+            access : HashSet::new(),
             file_name : (*file_name.clone()).to_string(),
         };
 
         save_docx(&mb, &docx);
         return mb;
+    }
+
+    pub fn has_access(mb : &Self, username : &str) -> bool {
+        let has_access : Vec<String>= mb.access.clone()
+            .into_iter()
+            .filter(|name| name == username)
+            .collect();
+        return has_access.len() == 1;
     }
 }
 

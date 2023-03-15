@@ -68,11 +68,12 @@ fn process_input(input_strings : Vec<&str>, stream : &TcpStream,
     Input::print(&inp);
 
     match inp.action.as_str() {
-        "login" => login::handle_login(inp),
-        "logout" => login::handle_logout(inp),
-        "new" => file_system::new_file(inp),
-        "update" => file_system::update_file(inp),
-        "read" => file_system::read_file(inp),
+        "login"   => login::handle_login(inp),
+        "logout"  => login::handle_logout(inp),
+        "new"     => file_system::new_file(inp),
+        "update"  => file_system::update_file(inp),
+        "read"    => file_system::read_file(inp),
+        "invite"  => file_system::invite(inp),
         _ => println!("Invalid input was passed into program"),
     };
 }

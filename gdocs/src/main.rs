@@ -7,6 +7,7 @@ static LOGOUT: &str = "http://localhost:8477/logout/user";
 static NEW_FILE: &str = "http://localhost:8477/new/user/test";
 static UPDATE_FILE: &str = "http://localhost:8477/update/user/user/test";
 static READ_FILE: &str = "http://localhost:8477/read/user/user/test";
+static INVITE: &str = "http://localhost:8477/invite/user/user2/test";
 
 /* Send a post request with a body */
 fn make_post_raw(req : &str, contents : &str) -> String {
@@ -124,5 +125,36 @@ fn test_read_file() {
     body = make_request_raw(LOGOUT);
     Command::new("sleep").arg("2").spawn().unwrap();
     assert_eq!(body,"user: user logged out");
+}
+
+#[test]
+fn test_invite() {
+    /* Login as user 1*/
+    let mut body : String = make_request_raw(LOGIN);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged in");
+    /* Create new empty file */
+    body = make_request_raw(NEW_FILE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"created a new file for user named test");
+    /* Login as user 2 */
+    body = make_request_raw(
+        "http://localhost:8477/login/user2");
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user2 logged in");
+    /* Logout as user 2 */
+    body = make_request_raw(
+        "http://localhost:8477/logout/user2");
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user2 logged out");
+    /* Invite user 2 to edit this file */
+    body = make_request_raw(INVITE);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user invited user2 to edit test");
+    /* Logout */
+    body = make_request_raw(LOGOUT);
+    Command::new("sleep").arg("2").spawn().unwrap();
+    assert_eq!(body,"user: user logged out");
+
 }
 
