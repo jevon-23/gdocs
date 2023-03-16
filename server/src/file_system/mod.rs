@@ -453,7 +453,7 @@ pub fn revoke(inp : Input) {
 
     /* Update mailbox.access to not have revoked users' name */
     let revoked : String = inp.params[0].clone(); //user being rev
-    mb.access.insert(revoked.clone());
+    mb.access.remove(&revoked);
 
     /* Save mailbox back to db */
     save_mailbox(&mb);
