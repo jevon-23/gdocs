@@ -74,6 +74,7 @@ fn process_input(input_strings : Vec<&str>, stream : &TcpStream,
         "update"  => file_system::update_file(inp),
         "read"    => file_system::read_file(inp),
         "invite"  => file_system::invite(inp),
+        "revoke"  => file_system::revoke(inp),
         _ => println!("Invalid input was passed into program"),
     };
 }
@@ -101,7 +102,7 @@ fn handle_connection(mut stream: &TcpStream) {
             .unwrap()
             ;
         let mut buf = vec![0u8; num_bytes.into()];
-        stream.read_exact(&mut buf).unwrap();
+        stream.read(&mut buf).unwrap();
         body = String::from_utf8_lossy(&buf[..]).to_string();
     }
     process_input(_split, stream, &body);

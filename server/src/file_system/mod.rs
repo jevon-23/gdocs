@@ -316,7 +316,7 @@ pub fn update_file(inp : Input) {
             Some(doc) => doc,
             None => {
                 let response : String = 
-                    format!("Could nto get documetnt ");
+                    format!("Could not get document");
                 utils::send_error_response(
                     inp.output_stream, response);
                 return;
@@ -410,3 +410,79 @@ pub fn invite(inp : Input) {
     utils::send_response(inp.output_stream, body);
 }
 
+/* Owner is revoking access from user to file */
+pub fn revoke(inp : Input) {
+    /* Get the owner of this file */
+    let mut all_users : Vec<users::User> = get_users();
+    let owner : users::User =
+        match get_user(&all_users, &inp.user) {
+            Some(u) => u,
+            None => {
+                let response =
+                    format!("Could not find user: {}", inp.user);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            }
+        };
+
+    /* Ensure that we are the owner of the mailbox */
+    let file_name : String = inp.params[1].clone();
+
+    /* Get the mailbox for this file */
+    let mut mb : docx::Mailbox =  match 
+        get_mailbox(&owner, &owner.username, &file_name) {
+            Some(mb) => mb,
+            None => {
+                let response : String =
+                    format!("Could not access mailbox: {}/{}",
+                            owner.username, file_name);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            }
+        };
+
+    if owner.username != mb.owner {
+        let response : String =
+            format!("{} does not own the file: {}",
+                    owner.username, file_name);
+        utils::send_error_response(inp.output_stream, response);
+        return;
+    }
+
+    /* Update mailbox.access to not have revoked users' name */
+    let revoked : String = inp.params[0].clone(); //user being rev
+    mb.access.insert(revoked.clone());
+
+    /* Save mailbox back to db */
+    save_mailbox(&mb);
+
+    /* Get the revoked users' obj */
+    let mut user2 : users::User =
+        match get_user(&all_users, &revoked) {
+            Some(u) => u,
+            None => {
+                let response : String =
+                    format!("Could not find user: {}", revoked);
+                utils::send_error_response(
+                    inp.output_stream, response);
+                return;
+            },
+        };
+
+    /* Update revoked users' file list to not contain 
+     * owner/filename */
+    user2.files.remove(
+        &(format!("{}/{}", &owner.username, file_name)));
+
+    /* Save user back to db */
+    update_user(&mut all_users, &user2);
+
+    /* Send response back */
+    let body : String = format!("{} revoked {} from {}", 
+                                owner.username, user2.username,
+                                file_name);
+    utils::send_response(inp.output_stream, body);
+
+}
